@@ -25,7 +25,7 @@ if __name__ == "__main__":
                          help='traces dataset in the hdf5 file.')
     parser.add_argument('--examid_dset', default='exam_id',
                      help='exam id dataset in the hdf5 file.')
-    parser.add_argument('--path_to_chagas', default='../../data/chagas.csv',
+    parser.add_argument('--path_to_chagas', default='../data/chagas.csv',
                         help='path to csv file containing chagas .')
     args, unk = parser.parse_known_args()
 
