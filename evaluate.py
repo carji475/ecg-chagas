@@ -99,7 +99,7 @@ if __name__ == "__main__":
     df.to_csv(args.output)
 
     # true diagnoses
-    true_diagnoses = test_loader.getfullbatch(attr_only=True)
+    true_diagnoses = test_loader.getfullbatch(attr_only=True).astype(int)
 
     # metrics
     P = true_diagnoses.sum()
