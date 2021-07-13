@@ -13,7 +13,7 @@ import math
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(add_help=False)
-    parser.add_argument('--mdl', default='model/', type=str,
+    parser.add_argument('--mdl', default='model/model3/', type=str,
                         help='folder containing model.')
     parser.add_argument('--path_to_traces', type=str, default='../data/sami-trop/exams.hdf5',
                         help='path to hdf5 containing ECG traces')
@@ -26,7 +26,7 @@ if __name__ == "__main__":
     parser.add_argument('--examid_dset', default='exam_id',
                      help='exam id dataset in the hdf5 file.')
     parser.add_argument('--path_to_chagas', default='../data/chagas.csv',
-                        help='path to csv file containing chagas .')
+                        help='path to csv file containing chagas diagnoses.')
     args, unk = parser.parse_known_args()
 
     # Check for unknown options
@@ -68,12 +68,12 @@ if __name__ == "__main__":
         )
     test_start = 0
     test_end = None
-    test_set_in_chagas = np.where(test_set.in_chagas[test_start:test_end])[0]
+    test_set_chagas_ids = np.where(test_set.in_chagas[test_start:test_end])[0]
     test_loader = ECGDataloaderH5(test_set, args.batch_size, test_start, test_end)
 
     # evaluate on test set
     model.eval()
-    pred_diagnoses = np.zeros_like(test_set_in_chagas)  # allocate space
+    pred_diagnoses = np.zeros_like(test_set_chagas_ids)  # allocate space
     eval_bar = tqdm(initial=0, leave=True, total=math.ceil(len(test_loader)/args.batch_size), position=0)
     end = test_start
     for traces, _ in test_loader:
@@ -92,14 +92,14 @@ if __name__ == "__main__":
     eval_bar.close()
 
     # Save predictions
-    df = pd.DataFrame({'ids': test_set_in_chagas,
-                       'exam_id': test_set.exams[test_set_in_chagas],
+    df = pd.DataFrame({'ids': test_set_chagas_ids,
+                       'exam_id': test_set.exams[test_set_chagas_ids],
                        'predicted_chagas': pred_diagnoses.astype(np.bool)})
     df = df.set_index('ids')  # else we get two index columns ...
     df.to_csv(args.output)
 
     # true diagnoses
-    true_diagnoses = test_loader.getfullbatch(attr_only=True).cpu().numpy()
+    true_diagnoses = test_loader.getfullbatch(attr_only=True)
 
     # metrics
     P = true_diagnoses.sum()

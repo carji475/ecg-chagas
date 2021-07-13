@@ -98,7 +98,7 @@ if __name__ == "__main__":
 
     # Arguments that will be saved in config file
     parser = argparse.ArgumentParser(add_help=True,
-                                     description='Train model to predict rage from the raw ecg tracing.')
+                                     description='Train model to predict chagas from the raw ecg tracing.')
     parser.add_argument('--epochs', type=int, default=70,
                         help='maximum number of epochs (default: 70)')
     parser.add_argument('--seed', type=int, default=2,
@@ -138,7 +138,7 @@ if __name__ == "__main__":
              help='weight decay in the optimisation. (default: 0)')
     parser.add_argument('--cuda', action='store_true',
                         help='use cuda for computations. (default: False)')
-    parser.add_argument('--path_to_data', default='../data/code15/code15_virtual.hdf5',
+    parser.add_argument('--path_to_data', default='../data/code15/exams_part0.hdf5',
                         help='path to file containing ECG traces for training')
     parser.add_argument('--path_to_chagas', default='../data/chagas.csv',
                         help='path to csv file containing chagas diagnoses')
@@ -192,7 +192,7 @@ if __name__ == "__main__":
 
     #=============== Define loss function =====================================#
     pos_weight = None if not(args.pos_weight) else dset.get_weights()
-    loss_function = torch.nn.BCEWithLogitsLoss(pos_weight=dset.get_weights())
+    loss_function = torch.nn.BCEWithLogitsLoss(pos_weight=pos_weight)
 
     #=============== Define optimiser =========================================#
     tqdm.write("Define optimiser...")

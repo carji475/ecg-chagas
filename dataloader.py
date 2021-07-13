@@ -25,21 +25,15 @@ class ECGDatasetH5:
 
         # self.in_chagas: boolean stating indices in the data set that has a chagas diagnos
         chagas_df = pd.read_csv(path_to_chagas)
-        self.in_chagas = np.isin(exams[:], chagas_df.exam_id.to_numpy())
+        self.in_chagas = np.isin(exams[:], chagas_df['exam_id'].to_numpy())
 
-        # self.chagas: chagas diagnos -- missing ones are replaced by 'nan'
-        exams_common = self.exams[np.where(self.in_chagas)[0]]  # common exams (boolean indexing does not work for virtual datasets)
-        exams_common_argsort = np.argsort(exams_common)  # sorting order
-        exams_common_argsort_inv = np.zeros_like(exams_common_argsort, dtype=int)
-        exams_common_argsort_inv[exams_common_argsort] = np.arange(exams_common_argsort.size)  # inverse sorting, i.e. a_sorted[a_argsort_inv] = a
-        chagas_common_sorted = chagas_df.loc[chagas_df.exam_id.isin(exams_common)].sort_values('exam_id')
-        chagas_common = chagas_common_sorted.chagas.to_numpy()[exams_common_argsort_inv].astype(int)
-
-        self.chagas = np.full(exams.shape, np.nan)
-        self.chagas[self.in_chagas] = chagas_common
+        # pick out the diagnoses
+        chagas_df = chagas_df.set_index('exam_id')
+        chagas_df = chagas_df.reindex(self.exams)
+        self.chagas = chagas_df['chagas'].to_numpy(float)  # chagas diagnos -- missing ones are replaced by 'nan'
 
         # weights due to unbalance
-        self.pos_weights = torch.tensor((1-chagas_common).sum()/chagas_common.sum(),
+        self.pos_weights = torch.tensor(np.nansum(1-self.chagas)/np.nansum(self.chagas),
             dtype=torch.float32)
 
     def get_ids(self):
@@ -57,7 +51,7 @@ class ECGDatasetH5:
         indices = indices[self.in_chagas[start:end]]
 
         if attr_only:
-            return torch.tensor(self.chagas[indices], dtype=torch.long)
+            return self.chagas[indices]
         else:
             return torch.tensor(self.traces[indices], dtype=torch.float32).transpose(-1, -2), \
                    torch.tensor(self.chagas[indices], dtype=torch.float32).unsqueeze(1)

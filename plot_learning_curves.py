@@ -4,7 +4,7 @@ import pandas as pd
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description='plot learning curve.')
-    parser.add_argument('--history_file', default='model/model2/history.csv', type=str,
+    parser.add_argument('--history_file', default='model/model3/history.csv', type=str,
                         help="path to history file.")
     parser.add_argument('--plot_style', nargs='*', default=[],
                         help='plot styles to be used')
