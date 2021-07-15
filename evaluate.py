@@ -119,6 +119,12 @@ if __name__ == "__main__":
     precision = TP/(TP+FP)
     recall = TP/(TP+FN)
 
-    print('Balanced accuracy: {}\nF1 score: {}\nMatthew: {}\nAccuracy: {}\nPrecision: '
+    res_string = 'Balanced accuracy: {}\nF1 score: {}\nMatthew: {}\nAccuracy: {}\nPrecision: '\
           '{}\nRecall: {}'.format(accuracy_balanced, f1_score, matthew,
-                                  accuracy, precision, recall))
+                                  accuracy, precision, recall)
+    file = open(os.path.join(args.mdl, 'res.txt'), 'w+')
+    file.write(res_string)
+    file.close()
+    
+    print(res_string)
+
