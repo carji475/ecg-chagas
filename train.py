@@ -234,8 +234,7 @@ if __name__ == "__main__":
             best_loss = valid_loss
 
         # Get learning rate
-        for param_group in optimiser.param_groups:
-            learning_rate = param_group["lr"]
+        learning_rate = optimiser.param_groups[0]["lr"]
 
         # Interrupt for minimum learning rate
         if learning_rate < args.min_lr:

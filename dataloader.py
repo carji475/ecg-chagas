@@ -80,9 +80,8 @@ class ECGDataloaderH5:
         if self.start == self.end_idx:
             raise StopIteration
         end = min(self.start + self.batch_size, self.end_idx)
-        b = self.dset.getbatch(self.start, end)
         self.start = end
-        return b
+        return self.dset.getbatch(self.start, end)
 
     def __iter__(self):
         self.start = self.start_idx
