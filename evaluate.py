@@ -19,7 +19,7 @@ if __name__ == "__main__":
                         help='path to hdf5 containing ECG traces')
     parser.add_argument('--batch_size', type=int, default=32,
                         help='number of exams per batch.')
-    parser.add_argument('--output', type=str, default=parser.parse_known_args()[0].mdl+'predicted_diagnoses.csv',
+    parser.add_argument('--output', type=str, default=os.path.join(parser.parse_known_args()[0].mdl,'predicted_diagnoses.csv'),
                         help='output file.')
     parser.add_argument('--traces_dset', default='tracings',
                          help='traces dataset in the hdf5 file.')
