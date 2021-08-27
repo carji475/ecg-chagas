@@ -10,16 +10,38 @@ from warnings import warn
 import pandas as pd
 from dataloader import ECGDatasetH5, ECGDataloaderH5
 import math
+import sklearn.metrics as sklm
+
+
+def compute_metrics(ytrue, ypred, path=None):
+    accuracy_balanced = sklm.balanced_accuracy_score(ytrue, ypred)
+    f1_score = sklm.f1_score(ytrue, ypred)
+    matthew = sklm.matthews_corrcoef(ytrue, ypred)
+    accuracy = sklm.accuracy_score(ytrue, ypred)
+    precision = sklm.precision_score(ytrue, ypred)
+    recall = sklm.recall_score(ytrue, ypred)
+
+    if path is not(None):
+        res_string = 'Balanced accuracy: {}\nF1 score: {}\nMatthew: {}\nAccuracy: ' \
+             '{}\nPrecision: {}\nRecall: {}'.format(accuracy_balanced,
+                            f1_score, matthew, accuracy, precision, recall)
+        file = open(path, 'w+')
+        file.write(res_string)
+        file.close()
+        return res_string
+    else:
+        return accuracy_balanced, f1_score, matthew, accuracy, precision, recall
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(add_help=False)
-    parser.add_argument('--mdl', default='model/model3/', type=str,
+    parser.add_argument('--mdl', default='model/', type=str,
                         help='folder containing model.')
     parser.add_argument('--path_to_traces', type=str, default='../data/sami-trop/exams.hdf5',
                         help='path to hdf5 containing ECG traces')
     parser.add_argument('--batch_size', type=int, default=32,
                         help='number of exams per batch.')
-    parser.add_argument('--output', type=str, default=os.path.join(parser.parse_known_args()[0].mdl,'predicted_diagnoses.csv'),
+    parser.add_argument('--output', type=str, default=os.path.join(parser.parse_known_args()[0].mdl, 'predicted_diagnoses.csv'),
                         help='output file.')
     parser.add_argument('--traces_dset', default='tracings',
                          help='traces dataset in the hdf5 file.')
@@ -102,29 +124,7 @@ if __name__ == "__main__":
     true_diagnoses = test_loader.getfullbatch(attr_only=True).astype(int)
 
     # metrics
-    P = true_diagnoses.sum()
-    N = (1-true_diagnoses).sum()
-    TP = ((true_diagnoses+pred_diagnoses)==2).sum()
-    FP = ((true_diagnoses-pred_diagnoses)==-1).sum()
-    FN = ((true_diagnoses-pred_diagnoses)==1).sum()
-    TN = ((true_diagnoses+pred_diagnoses)==0).sum()
-
-    TPR = TP/P  # true positive rate
-    TNR = TN/N  # true negative rate
-
-    accuracy_balanced = (TPR+TNR)/2
-    f1_score = 2*TP/(2*TP+FP+FN)
-    matthew = (TP*TN-FP*FN)/np.sqrt((TP+FP)*(TP+FN)*(TN+FP)*(TN+FN))
-    accuracy = (TP+TN)/(P+N)
-    precision = TP/(TP+FP)
-    recall = TP/(TP+FN)
-
-    res_string = 'Balanced accuracy: {}\nF1 score: {}\nMatthew: {}\nAccuracy: {}\nPrecision: '\
-          '{}\nRecall: {}'.format(accuracy_balanced, f1_score, matthew,
-                                  accuracy, precision, recall)
-    file = open(os.path.join(args.mdl, 'res.txt'), 'w+')
-    file.write(res_string)
-    file.close()
-    
+    res_string = compute_metrics(true_diagnoses, pred_diagnoses,
+                                 os.path.join(args.mdl, 'res_test.txt'))
     print(res_string)
 

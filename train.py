@@ -8,7 +8,7 @@ import torch.optim as optim
 import numpy as np
 import math
 from sklearn.metrics import precision_recall_curve
-
+from evaluate import compute_metrics
 
 def train(ep, dataload):
     model.train()
@@ -110,6 +110,8 @@ if __name__ == "__main__":
                         help='batch size (default: 32).')
     parser.add_argument('--valid_split', type=float, default=0.15,
                          help='fraction of the data used for validation (default: 0.15).')
+    parser.add_argument('--data_tot', type=float, default=1.0,
+                         help='fraction of the data used in total (default: 1.0).')
     parser.add_argument('--lr', type=float, default=0.001,
                         help='learning rate (default: 0.001)')
     parser.add_argument("--patience", type=int, default=7,
@@ -174,9 +176,19 @@ if __name__ == "__main__":
         ids_dset=None,
         path_to_chagas=args.path_to_chagas
         )
-    n_valid = round(args.valid_split*len(dset))
+    train_end = round(args.data_tot*len(dset))
+    n_valid = round(args.valid_split*train_end)
     valid_loader = ECGDataloaderH5(dset, args.batch_size, start_idx=0, end_idx=n_valid)
-    train_loader = ECGDataloaderH5(dset, args.batch_size, start_idx=n_valid, end_idx=None)
+    train_loader = ECGDataloaderH5(dset, args.batch_size, start_idx=n_valid, end_idx=train_end)
+
+    # save some data info
+    pptrain = train_loader.getfullbatch(attr_only=True).sum()/len(train_loader)
+    ppvalid = valid_loader.getfullbatch(attr_only=True).sum()/len(valid_loader)
+    data_info = 'Train positive proportion: {}' \
+                '\nValid positive proportion: {}'.format(pptrain, ppvalid)
+    file = open(os.path.join(args.folder, 'data_info.txt'), 'w+')
+    file.write(data_info)
+    file.close()
 
     #=============== Define model =============================================#
     tqdm.write("Define model...")
@@ -221,8 +233,8 @@ if __name__ == "__main__":
 
         # Save best model
         if valid_loss < best_loss:
-            _, _, opt_thres = get_optimal_precision_recall(
-                valid_loader.getfullbatch(attr_only=True), valid_outputs)
+            valid_true = valid_loader.getfullbatch(attr_only=True)
+            _, _, opt_thres = get_optimal_precision_recall(valid_true, valid_outputs)
             # Save model
             torch.save({'epoch': ep,
                         'model': model.state_dict(),  # model state
@@ -230,6 +242,10 @@ if __name__ == "__main__":
                         'opt_threshold': opt_thres,
                         'optimiser': optimiser.state_dict()},
                        os.path.join(folder, 'model.pth'))
+            # save metrics on the validation data
+            valid_pred = (valid_outputs-opt_thres+0.5).round().astype(int)
+            _ = compute_metrics(valid_true.astype(int), valid_pred,
+                                os.path.join(args.folder, 'res_valid.txt'))
             # Update best validation loss
             best_loss = valid_loss
 
