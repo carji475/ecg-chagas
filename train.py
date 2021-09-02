@@ -204,8 +204,7 @@ if __name__ == "__main__":
                          dropout_rate=args.dropout_rate)
     else:
         # Get checkpoint
-        ckpt = torch.load(os.path.join(args.ptmdl, 'model.pth'),
-                          map_location=lambda storage, loc: storage)
+        ckpt = torch.load(os.path.join(args.ptmdl, 'model.pth'), map_location=torch.device('cpu'))
         # Get config
         config = os.path.join(args.ptmdl, 'config.json')
         with open(config, 'r') as f:
