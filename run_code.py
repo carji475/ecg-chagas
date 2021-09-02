@@ -10,7 +10,7 @@ os.system('python3 train.py --folder ' + model_name + ' --epochs 70 '
           '--ptmdl "./mdl-test" --cuda --weight_decay 0.001')
 
 # evaluate
-os.system('python3 evaluate.py --mdl ' + model_name +
+os.system('python3 evaluate.py --mdl ' + model_name + ' ' +
           '--path_to_traces "/scratch/code/samitrop.hdf5" --traces_dset "signal" '
           '--examid_dset "id_exam" --path_to_chagas "/scratch/code/chagas.csv" ')
 
