@@ -99,7 +99,7 @@ if __name__ == "__main__":
     # Arguments that will be saved in config file
     parser = argparse.ArgumentParser(add_help=True,
                                      description='Train model to predict chagas from the raw ecg tracing.')
-    parser.add_argument('--epochs', type=int, default=70,
+    parser.add_argument('--epochs', type=int, default=1,
                         help='maximum number of epochs (default: 70)')
     parser.add_argument('--seed', type=int, default=2,
                         help='random seed for number generator (default: 2)')
@@ -130,6 +130,8 @@ if __name__ == "__main__":
                         help='kernel size in convolutional layers (default: 17).')
     parser.add_argument('--folder', default='model/',
                         help='output folder (default: ./out)')
+    parser.add_argument('--ptmdl', default=None,
+                    help='pre-trained model path (default: None)')
     parser.add_argument('--traces_dset', default='tracings',
                          help='traces dataset in the hdf5 file.')
     parser.add_argument('--examid_dset', default='exam_id',
@@ -194,11 +196,33 @@ if __name__ == "__main__":
     tqdm.write("Define model...")
     N_LEADS = 12  # the 12 leads
     N_CLASSES = 1  # two classes, but just need one output
-    model = ResNet1d(input_dim=(N_LEADS, args.seq_length),  # (12, 4096)
-                     blocks_dim=list(zip(args.net_filter_size, args.net_seq_lengh)),
-                     n_classes=N_CLASSES,
-                     kernel_size=args.kernel_size,
-                     dropout_rate=args.dropout_rate)
+    if args.ptmdl is None:
+        model = ResNet1d(input_dim=(N_LEADS, args.seq_length),  # (12, 4096)
+                         blocks_dim=list(zip(args.net_filter_size, args.net_seq_lengh)),
+                         n_classes=N_CLASSES,
+                         kernel_size=args.kernel_size,
+                         dropout_rate=args.dropout_rate)
+    else:
+        # Get checkpoint
+        ckpt = torch.load(os.path.join(args.ptmdl, 'model.pth'),
+                          map_location=lambda storage, loc: storage)
+        # Get config
+        config = os.path.join(args.ptmdl, 'config.json')
+        with open(config, 'r') as f:
+            config_dict = json.load(f)
+        model = ResNet1d(input_dim=(N_LEADS, config_dict['seq_length']),
+                 blocks_dim=list(zip(config_dict['net_filter_size'],
+                                     config_dict['net_seq_length'])),
+                 n_classes=N_CLASSES,
+                 kernel_size=config_dict['kernel_size'],
+                 dropout_rate=args.dropout_rate)
+        ckpt['model']['conv1.weight'] = torch.zeros([64, 12, 17])
+        torch.nn.init.normal_(ckpt['model']["conv1.weight"])
+        ckpt['model']["lin.weight"] = torch.zeros([1, 5120])
+        torch.nn.init.normal_(ckpt['model']["lin.weight"])
+        ckpt['model']["lin.bias"] = torch.zeros(1)
+        model.load_state_dict(ckpt['model'])
+
     model.to(device=device)
     tqdm.write("Done!")
 
