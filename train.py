@@ -204,7 +204,10 @@ if __name__ == "__main__":
                          dropout_rate=args.dropout_rate)
     else:
         # Get checkpoint
-        ckpt = torch.load(os.path.join(args.ptmdl, 'model.pth'), map_location=torch.device('cpu'))
+        # model2 is saved in the old format so that it works with the older
+        # pytorch version on hydra
+        ckpt = torch.load(os.path.join(args.ptmdl, 'model2.pth'),
+                          map_location=lambda storage, loc: storage)
         # Get config
         config = os.path.join(args.ptmdl, 'config.json')
         with open(config, 'r') as f:
