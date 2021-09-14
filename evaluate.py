@@ -97,19 +97,19 @@ if __name__ == "__main__":
     model.eval()
     pred_diagnoses = np.zeros_like(test_set_chagas_ids)  # allocate space
     eval_bar = tqdm(initial=0, leave=True, total=math.ceil(len(test_loader)/args.batch_size), position=0)
-    end = test_start
+    end = 0
     for traces, _ in test_loader:
         traces = traces.to(device)
         start = end
         with torch.no_grad():
             # Forward pass
-            mod_out = model(traces)  # classify predictions
+            mod_out = model(traces)  # get network output
 
-            end = min(start + len(traces), pred_diagnoses.size)
-            pred_diagnoses[start:end] = (torch.nn.Sigmoid()(mod_out)-opt_threshold+0.5)\
+            # classify theoutputs
+            end = start + len(traces)
+            pred_diagnoses[start:end] = (torch.nn.Sigmoid()(mod_out) - opt_threshold + 0.5)\
                 .round().detach().cpu().numpy().flatten()
 
-        # Print result
         eval_bar.update(1)
     eval_bar.close()
 
