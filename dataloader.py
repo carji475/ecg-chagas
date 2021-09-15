@@ -74,7 +74,8 @@ class ECGDataloaderH5:
         self.start = start_idx
 
     def getfullbatch(self, attr_only=False):
-        return self.dset.getbatch(self.start_idx, self.end_idx, attr_only=attr_only)
+        b = self.dset.getbatch(self.start_idx, self.end_idx, attr_only=attr_only)
+        return b
 
     def __next__(self):
         if self.start == self.end_idx:

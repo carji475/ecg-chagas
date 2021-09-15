@@ -112,8 +112,10 @@ def get_optimal_precision_recall(y_true, y_score):
 
     # Get precision-recall curve
     precision, recall, threshold = precision_recall_curve(y_true, y_score)
+
     # Compute f1 score for each point (use nan_to_num to avoid nans messing up the results)
     f1_score = np.nan_to_num(2 * precision * recall / (precision + recall))
+
     # Select threshold that maximize f1 score
     index = np.argmax(f1_score)
     opt_precision = precision[index]
@@ -237,7 +239,7 @@ if __name__ == "__main__":
     # =============== Define model =============================================#
     tqdm.write("Define model...")
     N_LEADS = 12  # the 12 leads
-    N_CLASSES = 1  # two classes, but just need one output
+    N_CLASSES = 1  # two classes, but just need one output before sigmoid
     if args.ptmdl is None:
         model = ResNet1d(input_dim=(N_LEADS, args.seq_length),  # (12, 4096)
                          blocks_dim=list(
@@ -272,7 +274,7 @@ if __name__ == "__main__":
     tqdm.write("Done!")
 
     # =============== Define loss function =====================================#
-    pos_weight = None if not (args.pos_weight) else dset.get_weights()
+    pos_weight = None if not(args.pos_weight) else dset.get_weights()
     loss_function = torch.nn.BCEWithLogitsLoss(pos_weight=pos_weight)
 
     # =============== Define optimiser =========================================#
