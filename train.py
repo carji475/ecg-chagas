@@ -132,7 +132,7 @@ if __name__ == "__main__":
     # Arguments that will be saved in config file
     parser = argparse.ArgumentParser(add_help=True,
                                      description='Train model to predict chagas from the raw ecg tracing.')
-    parser.add_argument('--epochs', type=int, default=70,
+    parser.add_argument('--epochs', type=int, default=10,
                         help='maximum number of epochs (default: 1)')
     parser.add_argument('--seed', type=int, default=2,
                         help='random seed for number generator (default: 2)')
@@ -143,7 +143,7 @@ if __name__ == "__main__":
                         help='batch size (default: 32).')
     parser.add_argument('--valid_split', type=float, default=0.15,
                         help='fraction of the data used for validation (default: 0.15).')
-    parser.add_argument('--data_tot', type=float, default=1.0,
+    parser.add_argument('--data_tot', type=float, default=0.03,
                         help='fraction of the data used in total (default: 1.0).')
     parser.add_argument('--lr', type=float, default=0.001,
                         help='learning rate (default: 0.001)')
@@ -296,14 +296,16 @@ if __name__ == "__main__":
     start_epoch = 0
     best_loss = np.Inf
 
-    # create data frame to store the results in
+    # create data frames to store the results in
     history = pd.DataFrame(columns=['epoch', 'train_loss', 'valid_loss', 'lr',
                                     'train_opt_thres', 'train_acc_bal', 'train_f1',
                                     'train_matthew', 'train_acc', 'train_prec',
-                                    'train_recall',
+                                    'train_recall', 'train_roc_auc', 'train_avg_prec',
                                     'valid_opt_thres', 'valid_acc_bal', 'valid_f1',
                                     'valid_matthew', 'valid_acc', 'valid_prec',
-                                    'valid_recall'])
+                                    'valid_recall', 'valid_roc_auc', 'valid_avg_prec'])
+    best_valid_output = pd.DataFrame(columns=['valid_true', 'valid_output'])
+    best_valid_output['valid_true'] = valid_true
 
     # loop over epochs
     for ep in range(start_epoch, args.epochs):
@@ -327,6 +329,11 @@ if __name__ == "__main__":
             # Update best validation loss
             best_loss = valid_loss
 
+            # save outputs
+            best_valid_output['valid_output'] = valid_outputs
+            best_valid_output.to_csv(os.path.join(folder, 'best_valid_output.csv'), index=False)
+
+
         # Get learning rate
         learning_rate = optimiser.param_groups[0]["lr"]
 
@@ -342,15 +349,16 @@ if __name__ == "__main__":
 
         # get metrics
         # train
-        train_pred = (train_outputs - train_opt_thres + 0.5).round().astype(int)
+        train_pred = (train_outputs > train_opt_thres).astype(int)
         train_accuracy_balanced, train_f1_score, train_matthew, train_accuracy, \
-            train_precision, train_recall = \
-            compute_metrics(train_true.astype(int), train_pred)
+            train_precision, train_recall, train_roc_auc, train_avg_prec = \
+            compute_metrics(train_true.astype(int), train_outputs, train_pred)
         # valid
-        valid_pred = (valid_outputs - valid_opt_thres + 0.5).round().astype(int)
+        valid_pred = (valid_outputs > valid_opt_thres).astype(int)
         valid_accuracy_balanced, valid_f1_score, valid_matthew, valid_accuracy, \
-            valid_precision, valid_recall = \
-            compute_metrics(valid_true.astype(int), valid_pred)
+            valid_precision, valid_recall, valid_roc_auc, valid_avg_prec = \
+            compute_metrics(valid_true.astype(int), valid_outputs, valid_pred)
+
 
         # Save history
         history = history.append({"epoch": ep, "train_loss": train_loss,
@@ -363,13 +371,17 @@ if __name__ == "__main__":
                                   "train_acc": train_accuracy,
                                   "train_prec": train_precision,
                                   "train_recall": train_recall,
+                                  "train_roc_auc": train_roc_auc,
+                                  "train_avg_prec": train_avg_prec,
                                   "valid_opt_thres": valid_opt_thres,
                                   "valid_acc_bal": valid_accuracy_balanced,
                                   "valid_f1": valid_f1_score,
                                   "valid_matthew": valid_matthew,
                                   "valid_acc": valid_accuracy,
                                   "valid_prec": valid_precision,
-                                  "valid_recall": valid_recall},
+                                  "valid_recall": valid_recall,
+                                  "valid_roc_auc": valid_roc_auc,
+                                  "valid_avg_prec": valid_avg_prec},
                                  ignore_index=True)  # can only append a dict if ignore_index=True
         history.to_csv(os.path.join(folder, 'history.csv'), index=False)
 

@@ -13,24 +13,26 @@ import math
 import sklearn.metrics as sklm
 
 
-def compute_metrics(ytrue, ypred, path=None):
+def compute_metrics(ytrue, yscore, ypred, path=None):
     accuracy_balanced = sklm.balanced_accuracy_score(ytrue, ypred)
     f1_score = sklm.f1_score(ytrue, ypred)
     matthew = sklm.matthews_corrcoef(ytrue, ypred)
     accuracy = sklm.accuracy_score(ytrue, ypred)
     precision = sklm.precision_score(ytrue, ypred)
     recall = sklm.recall_score(ytrue, ypred)
+    roc_auc = sklm.roc_auc_score(ytrue, yscore)
+    prec_avg = sklm.average_precision_score(ytrue, yscore)
 
     if path is not(None):
         res_string = 'Balanced accuracy: {}\nF1 score: {}\nMatthew: {}\nAccuracy: ' \
-             '{}\nPrecision: {}\nRecall: {}'.format(accuracy_balanced,
-                            f1_score, matthew, accuracy, precision, recall)
+             '{}\nPrecision: {}\nRecall: {}\nRoc_auc: {}\nAvg prec: {}'.format(accuracy_balanced,
+                            f1_score, matthew, accuracy, precision, recall, roc_auc, prec_avg)
         file = open(path, 'w+')
         file.write(res_string)
         file.close()
         return res_string
     else:
-        return accuracy_balanced, f1_score, matthew, accuracy, precision, recall
+        return accuracy_balanced, f1_score, matthew, accuracy, precision, recall, roc_auc, prec_avg
 
 
 if __name__ == "__main__":
@@ -41,7 +43,7 @@ if __name__ == "__main__":
                         help='path to hdf5 containing ECG traces')
     parser.add_argument('--batch_size', type=int, default=32,
                         help='number of exams per batch.')
-    parser.add_argument('--output', type=str, default=os.path.join(parser.parse_known_args()[0].mdl, 'predicted_diagnoses.csv'),
+    parser.add_argument('--output', type=str, default=os.path.join(parser.parse_known_args()[0].mdl, 'evaluation.csv'),
                         help='output file.')
     parser.add_argument('--traces_dset', default='tracings',
                          help='traces dataset in the hdf5 file.')
@@ -79,6 +81,7 @@ if __name__ == "__main__":
 
     # optimal threshold
     opt_threshold = ckpt['opt_threshold']
+    print(opt_threshold)
 
     # test dataloader
     test_set = ECGDatasetH5(
@@ -94,8 +97,8 @@ if __name__ == "__main__":
     test_loader = ECGDataloaderH5(test_set, args.batch_size, test_start, test_end)
 
     # evaluate on test set
-    model.eval()
-    pred_diagnoses = np.zeros_like(test_set_chagas_ids)  # allocate space
+    model.eval()  # evaluation mode (e.g. disable dropout)
+    test_outputs = np.zeros(test_set_chagas_ids.shape)  # allocate space
     eval_bar = tqdm(initial=0, leave=True, total=math.ceil(len(test_loader)/args.batch_size), position=0)
     end = 0
     for traces, _ in test_loader:
@@ -105,26 +108,30 @@ if __name__ == "__main__":
             # Forward pass
             mod_out = model(traces)  # get network output
 
-            # classify theoutputs
+            # sigmoid the outputs
             end = start + len(traces)
-            pred_diagnoses[start:end] = (torch.nn.Sigmoid()(mod_out) - opt_threshold + 0.5)\
-                .round().detach().cpu().numpy().flatten()
+            test_outputs[start:end] = torch.nn.Sigmoid()(mod_out).detach().cpu().numpy().flatten()
 
         eval_bar.update(1)
     eval_bar.close()
+    
+    # true diagnoses
+    test_true = test_loader.getfullbatch(attr_only=True).astype(int)
+
+    # test predictions
+    test_pred = test_outputs > opt_threshold
 
     # Save predictions
     df = pd.DataFrame({'ids': test_set_chagas_ids,
                        'exam_id': test_set.exams[test_set_chagas_ids],
-                       'predicted_chagas': pred_diagnoses.astype(np.bool)})
+                       'test_pred': test_pred,
+                       'test_output': test_outputs,
+                       'test_true': test_true})
     df = df.set_index('ids')  # else we get two index columns ...
     df.to_csv(args.output)
 
-    # true diagnoses
-    true_diagnoses = test_loader.getfullbatch(attr_only=True).astype(int)
-
     # metrics
-    res_string = compute_metrics(true_diagnoses, pred_diagnoses,
+    res_string = compute_metrics(test_true, test_outputs, test_pred.astype(int),
                                  os.path.join(args.mdl, 'res_test.txt'))
     print(res_string)
 
