@@ -4,7 +4,7 @@ import pandas as pd
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description='plot learning curve.')
-    parser.add_argument('--history_file', default='model/history.csv', type=str,
+    parser.add_argument('--history_file', default='model/tmp/history.csv', type=str,
                         help="path to history file.")
     parser.add_argument('--save', default='',
                         help='save the plot in the given file')
@@ -14,7 +14,7 @@ if __name__ == "__main__":
 
     # figure object
     fig = plt.figure(figsize=(30, 10))
-    gs = fig.add_gridspec(2, 5, hspace=0.2, wspace=0.5)
+    gs = fig.add_gridspec(2, 5, hspace=0.2, wspace=0.6)
     axarr = gs.subplots(sharex=True)
 
     w = -1
