@@ -80,7 +80,7 @@ if __name__ == "__main__":
         l, = ax.plot(x[y >= 0], y[y >= 0], color='gray', alpha=0.2)
         ax.annotate('f1={0:0.1f}'.format(f_score), xy=(0.9, y[45] + 0.02))
     ax.legend()
-
-    plt.show()
+    
     if args.save:
         plt.savefig(args.save)
+    plt.show(block=False)

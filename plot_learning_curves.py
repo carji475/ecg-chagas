@@ -39,6 +39,6 @@ if __name__ == "__main__":
     axt.set_ylabel('learning rate', alpha=1, color='purple')
     axt.set_ylim((1e-8, 1e-2))
 
-    plt.show()
     if args.save:
         plt.savefig(args.save)
+    plt.show(block=False)
