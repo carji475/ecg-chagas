@@ -226,12 +226,13 @@ if __name__ == "__main__":
     valid_true = valid_loader.getfullbatch(attr_only=True)
 
     # save some data info
-    pptrain = train_loader.getfullbatch(attr_only=True).sum() / len(
-        train_loader)
-    ppvalid = valid_loader.getfullbatch(attr_only=True).sum() / len(
-        valid_loader)
-    data_info = 'Train positive proportion: {}' \
-                '\nValid positive proportion: {}'.format(pptrain, ppvalid)
+    n_train = len(train_loader)
+    n_train_pos = train_loader.getfullbatch(attr_only=True).sum()
+    n_valid_pos = valid_loader.getfullbatch(attr_only=True).sum()
+    data_info = 'n_total: {}\n\nn_train: {}\nn_train_pos: {}\nn_train_pos/n_train: {}' \
+                '\n\nn_valid: {}\nn_valid_pos: {}\nn_valid_pos/n_valid: {}'\
+                .format(n_valid+n_train, n_train, n_train_pos, n_train_pos/n_train,
+                        n_valid, n_valid_pos, n_valid_pos/n_valid)
     file = open(os.path.join(args.folder, 'data_info.txt'), 'w+')
     file.write(data_info)
     file.close()
@@ -317,6 +318,9 @@ if __name__ == "__main__":
         _, _, train_opt_thres = get_optimal_precision_recall(train_true, train_outputs)
         _, _, valid_opt_thres = get_optimal_precision_recall(valid_true, valid_outputs)
 
+        # path to save valid metrics (if loss improved)
+        valid_res_path = None
+
         # Save best model
         if valid_loss < best_loss:
             # Save model
@@ -332,6 +336,9 @@ if __name__ == "__main__":
             # save outputs
             best_valid_output['valid_output'] = valid_outputs
             best_valid_output.to_csv(os.path.join(folder, 'best_valid_output.csv'), index=False)
+
+            # set path for valid metrics
+            valid_res_path = os.path.join(folder, 'res_valid.txt')
 
 
         # Get learning rate
@@ -357,8 +364,7 @@ if __name__ == "__main__":
         valid_pred = (valid_outputs > valid_opt_thres).astype(int)
         valid_accuracy_balanced, valid_f1_score, valid_matthew, valid_accuracy, \
             valid_precision, valid_recall, valid_roc_auc, valid_avg_prec = \
-            compute_metrics(valid_true.astype(int), valid_outputs, valid_pred)
-
+            compute_metrics(valid_true.astype(int), valid_outputs, valid_pred, path=valid_res_path)
 
         # Save history
         history = history.append({"epoch": ep, "train_loss": train_loss,

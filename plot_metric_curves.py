@@ -6,7 +6,7 @@ import sklearn.metrics as sklm
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description='plot metric curve.')
-    parser.add_argument('--evaluation', default='model/tmp/best_valid_output.csv', type=str,
+    parser.add_argument('--evaluation', default='model/model5/best_valid_output.csv', type=str,
                         help="path to evaluation file.")
     parser.add_argument('--dset', default='valid', type=str,
                         help="data set (train/valid/test)")

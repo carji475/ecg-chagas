@@ -13,7 +13,7 @@ import math
 import sklearn.metrics as sklm
 
 
-def compute_metrics(ytrue, yscore, ypred, path=None):
+def compute_metrics(ytrue, yscore, ypred, path=None, string=False):
     accuracy_balanced = sklm.balanced_accuracy_score(ytrue, ypred)
     f1_score = sklm.f1_score(ytrue, ypred)
     matthew = sklm.matthews_corrcoef(ytrue, ypred)
@@ -23,14 +23,16 @@ def compute_metrics(ytrue, yscore, ypred, path=None):
     roc_auc = sklm.roc_auc_score(ytrue, yscore)
     prec_avg = sklm.average_precision_score(ytrue, yscore)
 
+    res_string = 'Balanced accuracy: {}\nF1 score: {}\nMatthew: {}\nAccuracy: ' \
+     '{}\nPrecision: {}\nRecall: {}\nRoc_auc: {}\nAvg prec: {}'.format(accuracy_balanced,
+                    f1_score, matthew, accuracy, precision, recall, roc_auc, prec_avg)
     if path is not(None):
-        res_string = 'Balanced accuracy: {}\nF1 score: {}\nMatthew: {}\nAccuracy: ' \
-             '{}\nPrecision: {}\nRecall: {}\nRoc_auc: {}\nAvg prec: {}'.format(accuracy_balanced,
-                            f1_score, matthew, accuracy, precision, recall, roc_auc, prec_avg)
         file = open(path, 'w+')
         file.write(res_string)
         file.close()
-        return res_string
+
+    if string:
+        return  res_string
     else:
         return accuracy_balanced, f1_score, matthew, accuracy, precision, recall, roc_auc, prec_avg
 
@@ -132,6 +134,6 @@ if __name__ == "__main__":
 
     # metrics
     res_string = compute_metrics(test_true, test_outputs, test_pred.astype(int),
-                                 os.path.join(args.mdl, 'res_test.txt'))
+                                 path=os.path.join(args.mdl, 'res_test.txt'), string=True)
     print(res_string)
 
