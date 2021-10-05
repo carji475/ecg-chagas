@@ -6,7 +6,7 @@ import sklearn.metrics as sklm
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description='plot metric curve.')
-    parser.add_argument('--evaluation', default='model/model5/best_valid_output.csv', type=str,
+    parser.add_argument('--evaluation', default='model/model10/best_valid_output.csv', type=str,
                         help="path to evaluation file.")
     parser.add_argument('--dset', default='valid', type=str,
                         help="data set (train/valid/test)")
@@ -43,7 +43,7 @@ if __name__ == "__main__":
     ax = axarr[1]
     ax.plot(threshold_roc, J, color='darkorange')
     ax.plot(threshold_roc[maxJ_index]*np.ones(2), J[maxJ_index]*np.arange(2),
-            '--', color='grey', label=str(threshold_roc[maxJ_index].round(2)))
+            '--', color='grey', label=str(threshold_roc[maxJ_index].round(3)))
     ax.plot(threshold_roc[maxJ_index], J[maxJ_index], 'og')
     ax.set_xlim([0.0, 1.0])
     ax.set_xlabel('Threshold')
@@ -57,7 +57,7 @@ if __name__ == "__main__":
     ax.plot(threshold_pc, f1_score[:-1], color='darkorange')
     maxf1_index = np.argmax(f1_score)
     ax.plot(threshold_pc[maxf1_index]*np.ones(2), f1_score[maxf1_index]*np.arange(2),
-        '--', color='grey', label=str(threshold_pc[maxf1_index].round(2)))
+        '--', color='grey', label=str(threshold_pc[maxf1_index].round(3)))
     ax.plot(threshold_pc[maxf1_index], f1_score[maxf1_index], 'o')
     ax.set_xlabel('Threshold')
     ax.set_ylabel('F1 score')
@@ -83,4 +83,5 @@ if __name__ == "__main__":
     
     if args.save:
         plt.savefig(args.save)
-    plt.show(block=False)
+    else:
+        plt.show(block=False)

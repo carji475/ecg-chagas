@@ -41,4 +41,5 @@ if __name__ == "__main__":
 
     if args.save:
         plt.savefig(args.save)
-    plt.show(block=False)
+    else:
+        plt.show(block=False)
