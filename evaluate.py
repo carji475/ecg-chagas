@@ -10,38 +10,14 @@ from warnings import warn
 import pandas as pd
 from dataloader import ECGDatasetH5, ECGDataloaderH5
 import math
-import sklearn.metrics as sklm
-
-
-def compute_metrics(ytrue, yscore, ypred, path=None, string=False):
-    accuracy_balanced = sklm.balanced_accuracy_score(ytrue, ypred)
-    f1_score = sklm.f1_score(ytrue, ypred)
-    matthew = sklm.matthews_corrcoef(ytrue, ypred)
-    accuracy = sklm.accuracy_score(ytrue, ypred)
-    precision = sklm.precision_score(ytrue, ypred)
-    recall = sklm.recall_score(ytrue, ypred)
-    roc_auc = sklm.roc_auc_score(ytrue, yscore)
-    prec_avg = sklm.average_precision_score(ytrue, yscore)
-
-    res_string = 'Balanced accuracy: {}\nF1 score: {}\nMatthew: {}\nAccuracy: ' \
-     '{}\nPrecision: {}\nRecall: {}\nRoc_auc: {}\nAvg prec: {}'.format(accuracy_balanced,
-                    f1_score, matthew, accuracy, precision, recall, roc_auc, prec_avg)
-    if path is not(None):
-        file = open(path, 'w+')
-        file.write(res_string)
-        file.close()
-
-    if string:
-        return  res_string
-    else:
-        return accuracy_balanced, f1_score, matthew, accuracy, precision, recall, roc_auc, prec_avg
+from compute_metrics import compute_metrics
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument('--mdl', default='model/', type=str,
                         help='folder containing model.')
-    parser.add_argument('--path_to_traces', type=str, default='../data/sami-trop/exams.hdf5',
+    parser.add_argument('--path_to_traces', type=str, default='../data/samitrop/samitrop1631.hdf5',
                         help='path to hdf5 containing ECG traces')
     parser.add_argument('--batch_size', type=int, default=32,
                         help='number of exams per batch.')
@@ -51,7 +27,7 @@ if __name__ == "__main__":
                          help='traces dataset in the hdf5 file.')
     parser.add_argument('--examid_dset', default='exam_id',
                      help='exam id dataset in the hdf5 file.')
-    parser.add_argument('--path_to_chagas', default='../data/chagas.csv',
+    parser.add_argument('--path_to_chagas', default='../data/chagas_samitrop.csv',
                         help='path to csv file containing chagas diagnoses.')
     args, unk = parser.parse_known_args()
 
@@ -80,10 +56,6 @@ if __name__ == "__main__":
     # load model checkpoint
     model.load_state_dict(ckpt['model'])
     model = model.to(device)
-
-    # optimal threshold
-    opt_threshold = ckpt['opt_threshold']
-    print(opt_threshold)
 
     # test dataloader
     test_set = ECGDatasetH5(
@@ -120,20 +92,10 @@ if __name__ == "__main__":
     # true diagnoses
     test_true = test_loader.getfullbatch(attr_only=True).astype(int)
 
-    # test predictions
-    test_pred = test_outputs > opt_threshold
-
     # Save predictions
     df = pd.DataFrame({'ids': test_set_chagas_ids,
                        'exam_id': test_set.exams[test_set_chagas_ids],
-                       'test_pred': test_pred,
                        'test_output': test_outputs,
                        'test_true': test_true})
-    df = df.set_index('ids')  # else we get two index columns ...
-    df.to_csv(args.output)
-
-    # metrics
-    res_string = compute_metrics(test_true, test_outputs, test_pred.astype(int),
-                                 path=os.path.join(args.mdl, 'res_test.txt'), string=True)
-    print(res_string)
+    df.to_csv(args.output, index=False)
 
