@@ -73,7 +73,7 @@ if __name__ == "__main__":
     # evaluate on test set
     model.eval()  # evaluation mode (e.g. disable dropout)
     test_outputs = np.zeros(test_set_chagas_ids.shape)  # allocate space
-    eval_bar = tqdm(initial=0, leave=True, total=math.ceil(len(test_loader)/args.batch_size), position=0)
+    eval_bar = tqdm(initial=0, leave=True, total=len(test_loader), position=0)
     end = 0
     for traces, _ in test_loader:
         traces = traces.to(device)

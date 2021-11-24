@@ -3,7 +3,7 @@ from collections import OrderedDict
 import torch
 import pandas as pd
 import numpy as np
-
+import math
 
 class ECGDatasetH5:
     def __init__(self, path, traces_dset='signals', exam_id_dset='exam_id',
@@ -90,7 +90,7 @@ class ECGDataloaderH5:
         return self
 
     def __len__(self):
-        return self.end_idx-self.start_idx
+        return math.ceil((self.end_idx-self.start_idx) / self.batch_size)
 
 
 if __name__ == "__main__":

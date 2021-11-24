@@ -14,12 +14,11 @@ from compute_metrics import compute_metrics
 def train(ep, dataload):
     model.train()  # training mode (e.g. dropout enabled)
     total_loss = 0  # accumulated loss
-    n_entries = 0  # accumulated number of data points
+    n_batches = 0  # accumulated number of batches
 
     # set up waitbar
     train_desc = "Epoch {epoch:2d}: train - Loss: {loss:.6f}"
-    train_bar = tqdm(initial=0, leave=True,
-                     total=math.ceil(len(dataload) / args.batch_size),
+    train_bar = tqdm(initial=0, leave=True, total=len(dataload),
                      desc=train_desc.format(epoch=ep, loss=0),
                      position=0)  # progress bar
 
@@ -54,24 +53,23 @@ def train(ep, dataload):
 
         # Update accumulated values
         total_loss += loss.detach().cpu().numpy()
-        n_entries += len(traces)
+        n_batches += 1
 
         # Update progess bar
-        train_bar.desc = train_desc.format(epoch=ep, loss=total_loss / n_entries)
+        train_bar.desc = train_desc.format(epoch=ep, loss=total_loss / n_batches)
         train_bar.update(1)
     train_bar.close()
-    return total_loss / n_entries, train_outpts
+    return total_loss / n_batches, train_outpts
 
 
 def eval(ep, dataload):
     model.eval()  # evaluation mode (e.g. dropout disabled)
     total_loss = 0  # accumulated loss
-    n_entries = 0  # accumulated number of data points
+    n_batches = 0  # accumulated number of batches
 
     # set up waitbar
     eval_desc = "Epoch {epoch:2d}: valid - Loss: {loss:.6f}"
-    eval_bar = tqdm(initial=0, leave=True,
-                    total=math.ceil(len(dataload) / args.batch_size),
+    eval_bar = tqdm(initial=0, leave=True, total=len(dataload),
                     desc=eval_desc.format(epoch=ep, loss=0), position=0)
 
     # allocate space for storing the outputs
@@ -98,13 +96,13 @@ def eval(ep, dataload):
 
             # Update accumulated values
             total_loss += loss.detach().cpu().numpy()
-            n_entries += len(traces)
+            n_batches += 1
 
             # Print result
-            eval_bar.desc = eval_desc.format(epoch=ep, loss=total_loss / n_entries)
+            eval_bar.desc = eval_desc.format(epoch=ep, loss=total_loss / n_batches)
             eval_bar.update(1)
     eval_bar.close()
-    return total_loss / n_entries, eval_outputs
+    return total_loss / n_batches, eval_outputs
 
 
 if __name__ == "__main__":
@@ -146,7 +144,7 @@ if __name__ == "__main__":
                         help='dropout rate (default: 0.8).')
     parser.add_argument('--kernel_size', type=int, default=17,
                         help='kernel size in convolutional layers (default: 17).')
-    parser.add_argument('--folder', default='model/model12',
+    parser.add_argument('--folder', default='model/',
                         help='output folder (default: ./out)')
     parser.add_argument('--traces_dset', default='tracings',
                         help='traces dataset in the hdf5 file.')
@@ -207,7 +205,7 @@ if __name__ == "__main__":
     valid_true = valid_loader.getfullbatch(attr_only=True)
 
     # save some data info
-    n_train = len(train_loader)
+    n_train = train_end - n_valid
     n_train_pos = train_loader.getfullbatch(attr_only=True).sum()
     n_valid_pos = valid_loader.getfullbatch(attr_only=True).sum()
     data_info = 'n_total: {}\n\nn_train: {}\nn_train_pos: {}\nn_train_pos/n_train: {}' \
@@ -233,7 +231,7 @@ if __name__ == "__main__":
 
     # =============== Define loss function =====================================#
     pos_weight = None if not(args.pos_weight) else dset.get_weights()
-    loss_function = torch.nn.BCEWithLogitsLoss(pos_weight=pos_weight)
+    loss_function = torch.nn.BCEWithLogitsLoss(pos_weight=pos_weight, reduction='mean')
 
     # =============== Define optimiser =========================================#
     tqdm.write("Define optimiser...")
