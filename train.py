@@ -211,7 +211,7 @@ if __name__ == "__main__":
     n_valid_pos = valid_true.sum()
     data_info = 'n_total: {}\n\nn_train: {}\nn_train_pos: {}\nn_train_pos/n_train: {}' \
                 '\n\nn_valid: {}\nn_valid_pos: {}\nn_valid_pos/n_valid: {}'\
-                .format(n_valid+n_train, n_train_chagas, n_train_pos, n_train_pos/n_train_chagas,
+                .format(n_valid_chagas+n_train_chagas, n_train_chagas, n_train_pos, n_train_pos/n_train_chagas,
                         n_valid_chagas, n_valid_pos, n_valid_pos/n_valid_chagas)
     file = open(os.path.join(args.folder, 'data_info.txt'), 'w+')
     file.write(data_info)
