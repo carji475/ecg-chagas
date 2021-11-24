@@ -205,13 +205,14 @@ if __name__ == "__main__":
     valid_true = valid_loader.getfullbatch(attr_only=True)
 
     # save some data info
-    n_train = train_end - n_valid
-    n_train_pos = train_loader.getfullbatch(attr_only=True).sum()
-    n_valid_pos = valid_loader.getfullbatch(attr_only=True).sum()
+    n_train_chagas = train_true.size
+    n_train_pos = train_true.sum()
+    n_valid_chagas = valid_true.size
+    n_valid_pos = valid_true.sum()
     data_info = 'n_total: {}\n\nn_train: {}\nn_train_pos: {}\nn_train_pos/n_train: {}' \
                 '\n\nn_valid: {}\nn_valid_pos: {}\nn_valid_pos/n_valid: {}'\
-                .format(n_valid+n_train, n_train, n_train_pos, n_train_pos/n_train,
-                        n_valid, n_valid_pos, n_valid_pos/n_valid)
+                .format(n_valid+n_train, n_train_chagas, n_train_pos, n_train_pos/n_train_chagas,
+                        n_valid_chagas, n_valid_pos, n_valid_pos/n_valid_chagas)
     file = open(os.path.join(args.folder, 'data_info.txt'), 'w+')
     file.write(data_info)
     file.close()
@@ -265,9 +266,6 @@ if __name__ == "__main__":
         train_loss, train_outputs = train(ep, train_loader)
         valid_loss, valid_outputs = eval(ep, valid_loader)
 
-        # path to save valid metrics (if loss improved)
-        valid_res_path = None
-
         # Save best model
         if valid_loss < best_loss:
             # Save model
@@ -282,10 +280,6 @@ if __name__ == "__main__":
             # save outputs
             best_valid_output['valid_output'] = valid_outputs
             best_valid_output.to_csv(os.path.join(folder, 'best_valid_output.csv'), index=False)
-
-            # set path for valid metrics
-            valid_res_path = os.path.join(folder, 'res_valid.txt')
-
 
         # Get learning rate
         learning_rate = optimiser.param_groups[0]["lr"]
