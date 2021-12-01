@@ -57,13 +57,8 @@ if __name__ == "__main__":
         df_test['normal_ecg'] = samitrop['normal_ecg']
         df_test['is_male'] = samitrop['is_male']
 
-
-
         #%% Compute scores and bootstraped version of these scores
         bootstrap_nsamples = 1000
-        percentiles = [2.5, 97.5]
-        scores_resampled_list = []
-        scores_percentiles_list = []
 
         y_pred = np.array(df_test['test_output'] > optY, dtype=int)
         y_true = np.array(df_test['test_true'], dtype=int)
