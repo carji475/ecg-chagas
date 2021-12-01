@@ -1,43 +1,28 @@
-# Generate visualizations of saliency maps for ecgs
-# Parts of the implementation bellow is adapted from that of:
-# http://kazuto1011.github.io from Kazuto Nakashima.
-# Which is made available under MIT license.
-
-import torch
-import torch.nn as nn
-from torch.nn import functional as F
-from dataloader import ECGDatasetH5
-from compute_metrics import compute_metrics
-
 import os
 import numpy as np
-import sklearn.metrics as sklm
-
-from resnet import ResNet1d
 import h5py
-import json
-
 import matplotlib.pyplot as plt
+import argparse
+import pandas as pd
+import sklearn.metrics as sklm
+import seaborn as sns
 
-def add_cm_bars(ax, cntrs, cms):
-        cm_labels = ['TN', 'FN', 'FP', 'TP']
-        bar_width = 0.05
-        bar_atc = np.array([-1.5, -0.5, 0.5, 1.5]) * bar_width
-        for w, cntr in enumerate(cntrs):
-                bar_pos = cntr + bar_atc
-                bar_heights = cms[w].flatten(order='F')/cms[w].sum()
-                bars = ax.bar(bar_pos, bar_heights, width=bar_width, color=['b','r','g','k'])
-        ax.add_artist(ax.legend(bars,cm_labels, loc='lower center', bbox_to_anchor=(0.5,1), ncol=4))
+
+def get_scores(y_true, y_pred, score_fun):
+    scores = {name: fun(y_true, y_pred) for name, fun in score_fun.items()}
+    return scores
+
+
+def youdensJ_score(y_true, y_pred):
+    return sklm.balanced_accuracy_score(y_true, y_pred, adjusted=True)
+
+
+def specificity_score(y_true, y_pred):
+    m = sklm.confusion_matrix(y_true, y_pred, labels=[0, 1])
+    spc = m[0, 0] * 1.0 / (m[0, 0] + m[0, 1])
+    return spc
 
 if __name__ == "__main__":
-        import argparse
-        import ecg_plot
-        from tqdm import tqdm
-        import pandas as pd
-        import matplotlib.pyplot as plt
-
-
-
         parser = argparse.ArgumentParser()
         parser.add_argument('--path_to_traces', default='../data/samitrop/samitrop1631.hdf5',
                         help='path to data.')
@@ -46,6 +31,10 @@ if __name__ == "__main__":
         parser.add_argument('--save', type=str, default=os.path.join(parser.parse_args().model, 'stratify'),
                         help='file to save the plot.')
         args = parser.parse_args()
+
+        # Generate figure folder if needed
+        if not os.path.exists(args.save):
+            os.makedirs(args.save)
 
         # Youden's threshold from validation data
         valid_file = os.path.join(args.model, 'best_valid_output.csv')
@@ -68,85 +57,77 @@ if __name__ == "__main__":
         df_test['normal_ecg'] = samitrop['normal_ecg']
         df_test['is_male'] = samitrop['is_male']
 
-        ## age stratification
-        ages = np.append(np.arange(40, 81, 10), 200)
-        lower = 0
-        res = []
-        label_str = []
-        cms = []
-        for age in ages:
-            df_red = df_test[(df_test['age']>lower) & (df_test['age']<age)]
-            metrics = compute_metrics(df_red['test_true'].to_numpy(),
-                                  df_red['test_output'].to_numpy(), optY, cm=True)
-            res.append( metrics[1:] )
-            cms.append( metrics[0] )
-            label_str.append(str(lower)+'-'+str(age))
-            lower = age
-        label_str[-1] = str(ages[-2])+'+'
-
-        all_res = np.array(res)
-        fig, ax = plt.subplots(1,1)
-        cntrs = np.arange(ages.size)
-        ax.plot(cntrs, all_res[:,-2], '-o', label='ROC')
-        ax.plot(cntrs, all_res[:,-1], '-<', label='Avg. precision')
-        ax.plot(cntrs, all_res[:,-5], '-d', label='Precision')
-        ax.plot(cntrs, all_res[:,-4], '-v', label='Recall')
-        ax.plot(cntrs, all_res[:,-3], '-x', label='Specificity')
-        ax.set_xticks(cntrs)
-        add_cm_bars(ax, cntrs, cms)
-        ax.set_xticklabels(label_str)
-        ax.set_xlabel('Age span')
-        ax.legend()
 
 
-        ## sex stratification
-        res = []
-        cms = []
-        for is_male in [True, False]:
-            df_red = df_test[df_test['is_male']==is_male]
-            metrics = compute_metrics(df_red['test_true'].to_numpy(),
-                                  df_red['test_output'].to_numpy(), optY, cm=True)
-            res.append( metrics[1:] )
-            cms.append( metrics[0] )
+        #%% Compute scores and bootstraped version of these scores
+        bootstrap_nsamples = 1000
+        percentiles = [2.5, 97.5]
+        scores_resampled_list = []
+        scores_percentiles_list = []
 
-        all_res = np.array(res)
-        fig, ax = plt.subplots(1,1)
-        cntrs = np.arange(2)
-        ax.plot(cntrs, all_res[:,-2], '-o', label='ROC')
-        ax.plot(cntrs, all_res[:,-1], '-<', label='Avg. precision')
-        ax.plot(cntrs, all_res[:,-5], '-d', label='Precision')
-        ax.plot(cntrs, all_res[:,-4], '-v', label='Recall')
-        ax.plot(cntrs, all_res[:,-3], '-x', label='Specificity')
-        add_cm_bars(ax, cntrs, cms)
-        ax.set_xticks([0, 1])
-        ax.set_xticklabels(['Male', 'Female'])
-        ax.set_xlabel('Sex')
-        ax.legend()
+        y_pred = np.array(df_test['test_output'] > optY, dtype=int)
+        y_true = np.array(df_test['test_true'], dtype=int)
 
+        strat_dicts = [{
+            "feature": "age",
+            "categories": ['0-40', '40-50', '50-60', '60-70', '70-80', '80+'],
+            "label": "Age"
+        },
+        {
+            "feature": "is_male",
+            "categories": ['male', 'female'],
+            "label": "Gender"
+        },
+        {
+            "feature": "normal_ecg",
+            "categories": ['normal', 'abnormal'],
+            "label": "ECG status"
+        }
+        ]
 
-        ## normal ecg stratification
-        cms = []
-        res = []
-        outputs = []
-        for is_normal in [True, False]:
-            df_red = df_test[df_test['normal_ecg']==is_normal]
-            ground_truth = df_red['test_true'].to_numpy()
-            output = df_red['test_output'].to_numpy()
-            metrics = compute_metrics(ground_truth, output, optY, cm=True)
-            res.append( metrics[1:] )
-            cms.append( metrics[0] )
-            outputs.append(output)
+        score_fun = {'Recall': sklm.recall_score, 'Specificity': specificity_score,
+                     'Precision': sklm.precision_score,
+                     'F1 score': sklm.f1_score, 'Youdens J': youdensJ_score}
 
-        all_res = np.array(res)
-        fig, ax = plt.subplots(1,1)
-        cntrs = np.arange(2)
-        ax.plot(cntrs, all_res[:,-2], '-o', label='ROC')
-        ax.plot(cntrs, all_res[:,-1], '-<', label='Avg. precision')
-        ax.plot(cntrs, all_res[:,-5], '-d', label='Precision')
-        ax.plot(cntrs, all_res[:,-4], '-v', label='Recall')
-        ax.plot(cntrs, all_res[:,-3], '-x', label='Specificity')
-        add_cm_bars(ax, cntrs, cms)
-        ax.set_xticks([0, 1])
-        ax.set_xticklabels(['Normal', 'Abnormal'])
-        ax.set_xlabel('ECG status')
-        ax.legend()
+        for w, strat_dict in enumerate(strat_dicts):
+
+            condition = np.array(df_test[strat_dict["feature"]])
+
+            # Compute bootstraped samples
+            np.random.seed(123)  # NEVER change this =P
+            n = y_true.size
+            samples = np.random.randint(n, size=n * bootstrap_nsamples)
+
+            # Get samples
+            y_true_resampled = np.reshape(y_true[samples], (bootstrap_nsamples, n))
+            y_pred_resampled = np.reshape(y_pred[samples], (bootstrap_nsamples, n))
+            condition_resampled = np.reshape(condition[samples], (bootstrap_nsamples, n))
+            # Apply functions
+            scores_resampled = []
+
+            masks = []
+            if strat_dict["feature"] == 'age':
+                for w, group in enumerate(strat_dict["categories"]):
+                    if w == len(strat_dict["categories"])-1:
+                        lower = int(group.split('+')[0])
+                        upper = 1000
+                    else:
+                        lower, upper = tuple(np.array(group.split('-'),dtype=int))
+                    masks.append((condition_resampled>lower) & (condition_resampled<upper))
+            else:
+                masks.append(condition_resampled)
+                masks.append(~condition_resampled)
+            masks = np.array(masks)
+
+            for i in range(bootstrap_nsamples):
+                for strat_cat, mask in zip(strat_dict["categories"], masks[:, i, :]):
+                    s = get_scores(y_true_resampled[i, mask], y_pred_resampled[i, mask], score_fun)
+                    scores_resampled += [{"score": n, "value": v, strat_dict["label"]: strat_cat} for n, v in s.items()]
+
+            df_scores = pd.DataFrame(scores_resampled)
+            plt.figure(figsize=(16,4))
+            ax = sns.boxplot(y="value", x="score", hue=strat_dict["label"], data=df_scores)
+            ax.set_ylabel('')
+            ax.set_xlabel('Metric')
+            plt.savefig(os.path.join(args.save, strat_dict["feature"] + '.pdf'))
+            plt.show()

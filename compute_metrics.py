@@ -1,6 +1,5 @@
 import sklearn.metrics as sklm
 
-
 def compute_metrics(ytrue, yscore, threshold=0.5, path=None, string=False, cm=False):
     ypred = (yscore > threshold).astype(int)
 
@@ -21,8 +20,8 @@ def compute_metrics(ytrue, yscore, threshold=0.5, path=None, string=False, cm=Fa
     FP = CM[0][1]
     specificity = TN/(FP+TN)
 
-    res_string = "Balanced accuracy: {}\nF1 score: {}\nYouden's J: {}\nMatthew: {}\nAccuracy: " \
-     "{}\nPrecision: {}\nRecall: {}\nSpecificity: {}\nRoc_auc: {}\nAvg prec: {}".format(accuracy_balanced,
+    res_string = "Bal. accuracy:\t{}\nF1 score:\t{}\nYouden's J:\t{}\nMatthew:\t{}\nAccuracy:\t" \
+     "{}\nPrecision:\t{}\nRecall:\t\t{}\nSpecificity:\t{}\nRoc_auc:\t{}\nAvg prec:\t{}".format(accuracy_balanced,
                     f1_score, J, matthew, accuracy, precision, recall, specificity, roc_auc, prec_avg)
     if path is not(None):
         file = open(path, 'w+')
