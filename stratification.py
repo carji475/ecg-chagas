@@ -18,9 +18,7 @@ def youdensJ_score(y_true, y_pred):
 
 
 def specificity_score(y_true, y_pred):
-    m = sklm.confusion_matrix(y_true, y_pred, labels=[0, 1])
-    spc = m[0, 0] * 1.0 / (m[0, 0] + m[0, 1])
-    return spc
+    return sklm.recall_score(1-y_true, 1-y_pred)
 
 if __name__ == "__main__":
         parser = argparse.ArgumentParser()
