@@ -7,7 +7,6 @@ import pandas as pd
 import sklearn.metrics as sklm
 import seaborn as sns
 
-
 def get_scores(y_true, y_pred, score_fun):
     scores = {name: fun(y_true, y_pred) for name, fun in score_fun.items()}
     return scores
@@ -64,7 +63,8 @@ if __name__ == "__main__":
         strat_dicts = [{
             "feature": "age",
             "categories": ['0-40', '40-50', '50-60', '60-70', '70-80', '80+'],
-            "label": "Age"
+            "label": "Age",
+            "ncols": 3
         },
         {
             "feature": "is_male",
@@ -82,6 +82,7 @@ if __name__ == "__main__":
                      'Precision': sklm.precision_score,
                      'F1 score': sklm.f1_score, 'Youdens J': youdensJ_score}
 
+        all_scores = []
         for w, strat_dict in enumerate(strat_dicts):
 
             condition = np.array(df_test[strat_dict["feature"]])
@@ -105,7 +106,7 @@ if __name__ == "__main__":
                         lower = int(group.split('+')[0])
                         upper = 1000
                     else:
-                        lower, upper = tuple(np.array(group.split('-'),dtype=int))
+                        lower, upper = tuple(np.array(group.split('-'), dtype=int))
                     masks.append((condition_resampled>lower) & (condition_resampled<upper))
             else:
                 masks.append(condition_resampled)
@@ -116,11 +117,19 @@ if __name__ == "__main__":
                 for strat_cat, mask in zip(strat_dict["categories"], masks[:, i, :]):
                     s = get_scores(y_true_resampled[i, mask], y_pred_resampled[i, mask], score_fun)
                     scores_resampled += [{"score": n, "value": v, strat_dict["label"]: strat_cat} for n, v in s.items()]
+            all_scores.append(scores_resampled)
 
-            df_scores = pd.DataFrame(scores_resampled)
-            plt.figure(figsize=(16,4))
-            ax = sns.boxplot(y="value", x="score", hue=strat_dict["label"], data=df_scores)
-            ax.set_ylabel('')
-            ax.set_xlabel('Metric')
-            plt.savefig(os.path.join(args.save, strat_dict["feature"] + '.pdf'))
-            plt.show()
+
+# I add the following line before my plot
+plt.style.use(['./mystyle.mplsty'])
+for strat_dict, scores_resampled in zip(strat_dicts, all_scores):
+    df_scores = pd.DataFrame(scores_resampled)
+    plt.figure()
+    ax = sns.boxplot(y="value", x="score", hue=strat_dict["label"], data=df_scores)
+    ax.set_ylabel('')
+    ax.set_xlabel('')
+    ax.legend(ncol=strat_dict['ncols'] if 'ncols' in strat_dict.keys() else 1,
+              loc='best')
+    plt.tight_layout()
+    plt.savefig(os.path.join(args.save, 'stratif_' + strat_dict["feature"] + '.pdf'))
+    plt.show()
