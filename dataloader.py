@@ -7,7 +7,7 @@ import math
 
 class ECGDatasetH5:
     def __init__(self, path, traces_dset='signals', exam_id_dset='exam_id',
-                 ids_dset=None, path_to_chagas=None):
+                 ids_dset=None, path_to_chagas=None, chagas_diag='chagas', chagas_id='exam_id'):
         f = h5py.File(path, 'r')
         traces = f[traces_dset]
         exams = f[exam_id_dset]
@@ -25,12 +25,12 @@ class ECGDatasetH5:
 
         # self.in_chagas: boolean stating indices in the data set that has a chagas diagnos
         chagas_df = pd.read_csv(path_to_chagas)
-        self.in_chagas = np.isin(exams[:], chagas_df['exam_id'].to_numpy())
+        self.in_chagas = np.isin(exams[:], chagas_df[chagas_id].to_numpy())
 
         # pick out the diagnoses
-        chagas_df = chagas_df.set_index('exam_id')
+        chagas_df = chagas_df.set_index(chagas_id)
         chagas_df = chagas_df.reindex(self.exams)
-        self.chagas = chagas_df['chagas'].to_numpy(float)  # chagas diagnos -- missing ones are replaced by 'nan'
+        self.chagas = chagas_df[chagas_diag].to_numpy(float)  # chagas diagnos -- missing ones are replaced by 'nan'
 
         # weights due to unbalance
         self.pos_weights = torch.tensor(np.nansum(1-self.chagas)/np.nansum(self.chagas),
@@ -64,7 +64,7 @@ class ECGDatasetH5:
 
 
 class ECGDataloaderH5:
-    def __init__(self, dset, batch_size, start_idx=0, end_idx=None):
+    def __init__(self, dset, batch_size, start_idx=0, end_idx=None, cont_from_start=False):
         if end_idx is None:
             end_idx = len(dset)
         self.dset = dset
@@ -72,6 +72,7 @@ class ECGDataloaderH5:
         self.start_idx = start_idx
         self.end_idx = end_idx
         self.start = start_idx
+        self.cont_from_start = cont_from_start
 
     def getfullbatch(self, attr_only=False):
         b = self.dset.getbatch(self.start_idx, self.end_idx, attr_only=attr_only)
@@ -79,7 +80,10 @@ class ECGDataloaderH5:
 
     def __next__(self):
         if self.start == self.end_idx:
-            raise StopIteration
+            if self.cont_from_start:
+                self.start = self.start_idx
+            else:
+                raise StopIteration
         end = min(self.start + self.batch_size, self.end_idx)
         b = self.dset.getbatch(self.start, end)
         self.start = end

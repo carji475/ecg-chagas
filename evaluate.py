@@ -1,4 +1,3 @@
-# Imports
 from resnet import ResNet1d
 from tqdm import tqdm
 import torch
@@ -9,15 +8,13 @@ import argparse
 from warnings import warn
 import pandas as pd
 from dataloader import ECGDatasetH5, ECGDataloaderH5
-import math
-from compute_metrics import compute_metrics
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument('--mdl', default='model/', type=str,
                         help='folder containing model.')
-    parser.add_argument('--path_to_traces', type=str, default='../data/samitrop/samitrop1631.hdf5',
+    parser.add_argument('--path_to_traces', type=str, default='',
                         help='path to hdf5 containing ECG traces')
     parser.add_argument('--batch_size', type=int, default=32,
                         help='number of exams per batch.')
@@ -27,8 +24,12 @@ if __name__ == "__main__":
                          help='traces dataset in the hdf5 file.')
     parser.add_argument('--examid_dset', default='exam_id',
                      help='exam id dataset in the hdf5 file.')
-    parser.add_argument('--path_to_chagas', default='../data/chagas_samitrop.csv',
+    parser.add_argument('--path_to_chagas', default='',
                         help='path to csv file containing chagas diagnoses.')
+    parser.add_argument('--chagas_diag', default='chagas',
+                        help='chagas field key')
+    parser.add_argument('--chagas_id', default='exam_id',
+                        help='chagas exam identifier')
     args, unk = parser.parse_known_args()
 
     # Check for unknown options
@@ -63,7 +64,9 @@ if __name__ == "__main__":
         traces_dset=args.traces_dset,
         exam_id_dset=args.examid_dset,
         ids_dset=None,
-        path_to_chagas=args.path_to_chagas
+        path_to_chagas=args.path_to_chagas,
+        chagas_diag=args.chagas_diag,
+        chagas_id=args.chagas_id
         )
     test_start = 0
     test_end = None
@@ -94,7 +97,7 @@ if __name__ == "__main__":
 
     # Save predictions
     df = pd.DataFrame({'ids': test_set_chagas_ids,
-                       'exam_id': test_set.exams[test_set_chagas_ids],
+                       args.chagas_id: test_set.exams[test_set_chagas_ids],
                        'test_output': test_outputs,
                        'test_true': test_true})
     df.to_csv(args.output, index=False)

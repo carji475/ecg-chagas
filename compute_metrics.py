@@ -1,5 +1,6 @@
 import sklearn.metrics as sklm
 
+
 def compute_metrics(ytrue, yscore, threshold=0.5, path=None, string=False, cm=False):
     ypred = (yscore > threshold).astype(int)
 
@@ -16,9 +17,12 @@ def compute_metrics(ytrue, yscore, threshold=0.5, path=None, string=False, cm=Fa
 
     CM = sklm.confusion_matrix(ytrue, ypred)
 
-    res_string = "Bal. accuracy:\t{}\nF1 score:\t{}\nYouden's J:\t{}\nMatthew:\t{}\nAccuracy:\t" \
-     "{}\nPrecision:\t{}\nRecall:\t\t{}\nSpecificity:\t{}\nRoc_auc:\t{}\nAvg prec:\t{}".format(accuracy_balanced,
-                    f1_score, J, matthew, accuracy, precision, recall, specificity, roc_auc, prec_avg)
+    res_string = f"{'Balanced accuracy':.<30s}{accuracy_balanced}\n{'F1 score':.<30s}" \
+                 f"{f1_score}"+"\n{:.<30s}{}".format("Youden's J statistic", J)+\
+                 f"\n{'Matthew':.<30s}{matthew}\n{'Accuracy':.<30s}{accuracy}" \
+                 f"\n{'Precision':.<30s}{precision}\n{'Recall':.<30s}{recall}" \
+                 f"\n{'Specificity':.<30s}{specificity}\n{'AUC/ROC':.<30s}{roc_auc}" \
+                 f"\n{'Average precision':.<30s}{prec_avg}"
     if path is not(None):
         file = open(path, 'w+')
         file.write(res_string)
@@ -26,7 +30,10 @@ def compute_metrics(ytrue, yscore, threshold=0.5, path=None, string=False, cm=Fa
 
     if string:
         return res_string
-    elif cm:
-        return CM, accuracy_balanced, f1_score, J, matthew, accuracy, precision, recall, specificity, roc_auc, prec_avg
     else:
-        return accuracy_balanced, f1_score, J, matthew, accuracy, precision, recall, specificity, roc_auc, prec_avg
+        rets = (accuracy_balanced, f1_score, J, matthew, accuracy, precision, \
+               recall, specificity, roc_auc, prec_avg)
+        if cm:
+            return (CM, *rets)
+        else:
+            return rets

@@ -6,12 +6,10 @@ from resnet import ResNet1d
 from dataloader import ECGDatasetH5, ECGDataloaderH5
 import torch.optim as optim
 import numpy as np
-import math
-from sklearn.metrics import precision_recall_curve
 from compute_metrics import compute_metrics
 
 
-def train(ep, dataload):
+def train(ep, dataload, dataload2):
     model.train()  # training mode (e.g. dropout enabled)
     total_loss = 0  # accumulated loss
     n_batches = 0  # accumulated number of batches
@@ -22,28 +20,19 @@ def train(ep, dataload):
                      desc=train_desc.format(epoch=ep, loss=0),
                      position=0)  # progress bar
 
-    # allocate space for storing the outputs
-    train_outpts = np.zeros(
-        dataload.dset.in_chagas[dataload.start_idx:dataload.end_idx].sum())
-    end = 0
-
     # loop over batches
     for traces, diagnoses in dataload:
+        traces2, diagnoses2 = next(dataload2)
+        traces = torch.cat((traces,traces2))
+        diagnoses = torch.cat((diagnoses,diagnoses2))
         traces, diagnoses = traces.to(device), diagnoses.to(device)  # use cuda if available
-
-        # reset start index
-        start = end
 
         # Reinitialize grad
         model.zero_grad()
 
         # Forward pass
-        model_output = model(traces)  # predicted ages
+        model_output = model(traces)
         loss = loss_function(model_output, diagnoses)
-
-        end = start + len(traces)
-        train_outpts[start:end] = torch.nn.Sigmoid()(model_output)\
-            .detach().cpu().numpy().flatten()
 
         # Backward pass
         loss.backward()
@@ -59,13 +48,12 @@ def train(ep, dataload):
         train_bar.desc = train_desc.format(epoch=ep, loss=total_loss / n_batches)
         train_bar.update(1)
     train_bar.close()
-    return total_loss / n_batches, train_outpts
+    return total_loss/n_batches
 
 
-def eval(ep, dataload):
+def eval(ep, dataload, dataload2):
     model.eval()  # evaluation mode (e.g. dropout disabled)
     total_loss = 0  # accumulated loss
-    n_batches = 0  # accumulated number of batches
 
     # set up waitbar
     eval_desc = "Epoch {epoch:2d}: valid - Loss: {loss:.6f}"
@@ -74,35 +62,45 @@ def eval(ep, dataload):
 
     # allocate space for storing the outputs
     eval_outputs = np.zeros(
-        dataload.dset.in_chagas[dataload.start_idx:dataload.end_idx].sum())
+        dataload.dset.in_chagas[dataload.start_idx:dataload.end_idx].sum()
+        +dataload2.dset.in_chagas[dataload2.start_idx:dataload2.end_idx].sum())
     end = 0
 
+    n_batches = 0 # accumulated number of batches
+
     # loop over the batches
-    for traces, diagnoses in dataload:
-        traces, diagnoses = traces.to(device), diagnoses.to(device)
+    for nmbr, dload in enumerate([dataload, dataload2]):
+        n_sub_batches = 0
+        for traces, diagnoses in dload:
+            traces, diagnoses = traces.to(device), diagnoses.to(device)
 
-        # reset start index
-        start = end
+            # reset start index
+            start = end
 
-        with torch.no_grad():  # disable gradient tracking
-            # Forward pass
-            model_output = model(traces)
-            loss = loss_function(model_output, diagnoses)
+            with torch.no_grad():  # disable gradient tracking
+                # Forward pass
+                model_output = model(traces)
+                loss = loss_function(model_output, diagnoses)
 
-            # store output
-            end = start + len(traces)
-            eval_outputs[start:end] = torch.nn.Sigmoid()(model_output)\
-                .detach().cpu().numpy().flatten()
+                # store output
+                end = start + len(traces)
+                eval_outputs[start:end] = torch.nn.Sigmoid()(model_output)\
+                    .detach().cpu().numpy().flatten()
 
-            # Update accumulated values
-            total_loss += loss.detach().cpu().numpy()
-            n_batches += 1
+                # Update accumulated values
+                n_batches += 1
+                n_sub_batches += 1
+                total_loss += loss.detach().cpu().numpy()
+                display_loss = total_loss/n_batches
 
-            # Print result
-            eval_bar.desc = eval_desc.format(epoch=ep, loss=total_loss / n_batches)
-            eval_bar.update(1)
+                # Print result
+                eval_bar.desc = eval_desc.format(epoch=ep, loss=display_loss)
+                eval_bar.update(1)
+
+    total_loss /= n_batches
+
     eval_bar.close()
-    return total_loss / n_batches, eval_outputs
+    return total_loss, eval_outputs
 
 
 if __name__ == "__main__":
@@ -113,17 +111,19 @@ if __name__ == "__main__":
     # Arguments that will be saved in config file
     parser = argparse.ArgumentParser(add_help=True,
                                      description='Train model to predict chagas from the raw ecg tracing.')
-    parser.add_argument('--epochs', type=int, default=1,
-                        help='maximum number of epochs (default: 1)')
-    parser.add_argument('--seed', type=int, default=2,
-                        help='random seed for number generator (default: 2)')
+    parser.add_argument('--epochs', type=int, default=100,
+                        help='maximum number of epochs (default: 100)')
+    parser.add_argument('--seed', type=int, default=0,
+                        help='random seed for number generator (default: 0)')
     parser.add_argument('--seq_length', type=int, default=4096,
                         help='size (in # of samples) for all traces. If needed traces will be zeropadded'
                              'to fit into the given size. (default: 4096)')
     parser.add_argument('--batch_size', type=int, default=32,
                         help='batch size (default: 32).')
+    parser.add_argument('--batch_ratio', type=float, default=0.5,
+                        help='proportion of samitrop dset in batch (default: 0.5).')
     parser.add_argument('--valid_split', type=float, default=0.15,
-                        help='fraction of the data used for validation (default: 0.15).')
+                        help='fraction of the data used for validation (samitrop) (default: 0.15).')
     parser.add_argument('--data_tot', type=float, default=1.0,
                         help='fraction of the data used in total (default: 1.0).')
     parser.add_argument('--lr', type=float, default=0.001,
@@ -146,10 +146,6 @@ if __name__ == "__main__":
                         help='kernel size in convolutional layers (default: 17).')
     parser.add_argument('--folder', default='model/',
                         help='output folder (default: ./out)')
-    parser.add_argument('--traces_dset', default='tracings',
-                        help='traces dataset in the hdf5 file.')
-    parser.add_argument('--examid_dset', default='exam_id',
-                        help='exam id dataset in the hdf5 file.')
     parser.add_argument('--pos_weight', action='store_true',
                         help='use positive weighting in the loss. (default: False)')
     parser.add_argument('--weight_decay', type=float, default=0.0,
@@ -157,10 +153,23 @@ if __name__ == "__main__":
     parser.add_argument('--cuda', action='store_true',
                         help='use cuda for computations. (default: False)')
     parser.add_argument('--path_to_data',
-                        default='../data/code15/exams_part0.hdf5',
-                        help='path to file containing ECG traces for training')
-    parser.add_argument('--path_to_chagas', default='../data/chagas_no_samitrop.csv',
-                        help='path to csv file containing chagas diagnoses')
+                        default='../data/samitrop/samitrop_all_records.h5',
+                        help='path to file containing ECG traces for training (1st file)')
+    parser.add_argument('--path_to_data2',
+                        default='../data/code/traces.hdf5',
+                        help='path to file containing ECG traces for training (2nd file)')
+    parser.add_argument('--traces_dset', default='tracings',
+                        help='traces dataset in the hdf5 file (1st file)')
+    parser.add_argument('--traces_dset2', default='tracings',
+                        help='traces dataset in the hdf5 file (2nd file)')
+    parser.add_argument('--examid_dset', default='exam_id',
+                        help='exam id dataset in the hdf5 file (1st file)')
+    parser.add_argument('--examid_dset2', default='exam_id',
+                        help='exam id dataset in the hdf5 file (2nd file)')
+    parser.add_argument('--path_to_chagas', default='../data/chagas_samitrop2054.csv',
+                        help='path to csv file containing chagas diagnoses (1st file)')
+    parser.add_argument('--path_to_chagas2', default='../data/chagas_no_samitrop.csv',
+                        help='path to csv file containing chagas diagnoses (2nd file)')
 
     args, unk = parser.parse_known_args()
 
@@ -186,6 +195,7 @@ if __name__ == "__main__":
     # =============== Build data loaders =======================================#
     tqdm.write("Building data loaders...")
 
+    # define data sets
     dset = ECGDatasetH5(
         path=args.path_to_data,
         traces_dset=args.traces_dset,
@@ -193,16 +203,33 @@ if __name__ == "__main__":
         ids_dset=None,
         path_to_chagas=args.path_to_chagas
     )
-    train_end = round(args.data_tot * len(dset))
+    dset2 = ECGDatasetH5(
+        path=args.path_to_data2,
+        traces_dset=args.traces_dset2,
+        exam_id_dset=args.examid_dset2,
+        ids_dset=None,
+        path_to_chagas=args.path_to_chagas2
+    )
+
+    train_end = len(dset)
     n_valid = round(args.valid_split * train_end)
-    valid_loader = ECGDataloaderH5(dset, args.batch_size, start_idx=0,
-                                   end_idx=n_valid)
-    train_loader = ECGDataloaderH5(dset, args.batch_size, start_idx=n_valid,
-                                   end_idx=train_end)
+    n_valid2 = 2*n_valid
+    train_end2 = round(args.data_tot * len(dset2))
+    batch_size = round(args.batch_size*args.batch_ratio)
+    batch_size2 = args.batch_size - batch_size
+
+    valid_loader = ECGDataloaderH5(dset, args.batch_size, start_idx=0, end_idx=n_valid)
+    train_loader = ECGDataloaderH5(dset, batch_size, start_idx=n_valid, end_idx=train_end)
+
+    valid_loader2 = ECGDataloaderH5(dset2, args.batch_size, start_idx=0, end_idx=n_valid2)
+    train_loader2 = ECGDataloaderH5(dset2, batch_size2, start_idx=n_valid2,
+                                   end_idx=train_end2, cont_from_start=True)
 
     # true train & validation labels (to be used when computing metrics)
-    train_true = train_loader.getfullbatch(attr_only=True)
-    valid_true = valid_loader.getfullbatch(attr_only=True)
+    train_true = np.concatenate((train_loader.getfullbatch(attr_only=True),
+                                 train_loader2.getfullbatch(attr_only=True)))
+    valid_true = np.concatenate((valid_loader.getfullbatch(attr_only=True),
+                                 valid_loader2.getfullbatch(attr_only=True)))
 
     # save some data info
     n_train_chagas = train_true.size
@@ -231,8 +258,7 @@ if __name__ == "__main__":
     tqdm.write("Done!")
 
     # =============== Define loss function =====================================#
-    pos_weight = None if not(args.pos_weight) else dset.get_weights()
-    loss_function = torch.nn.BCEWithLogitsLoss(pos_weight=pos_weight, reduction='mean')
+    loss_function = torch.nn.BCEWithLogitsLoss(pos_weight=None, reduction='mean')
 
     # =============== Define optimiser =========================================#
     tqdm.write("Define optimiser...")
@@ -255,16 +281,15 @@ if __name__ == "__main__":
 
     # create data frames to store the results in
     history = pd.DataFrame(columns=['epoch', 'train_loss', 'valid_loss', 'lr',
-                                    'train_roc_auc', 'train_avg_prec',
-                                    'valid_roc_auc', 'valid_avg_prec'])
+                                        'valid_roc_auc', 'valid_avg_prec'])
     best_valid_output = pd.DataFrame(columns=['valid_true', 'valid_output'])
     best_valid_output['valid_true'] = valid_true
 
     # loop over epochs
     for ep in range(start_epoch, args.epochs):
         # compute losses and outputs for training & validation data
-        train_loss, train_outputs = train(ep, train_loader)
-        valid_loss, valid_outputs = eval(ep, valid_loader)
+        train_loss = train(ep, train_loader, train_loader2)
+        valid_loss, valid_outputs = eval(ep, valid_loader, valid_loader2)
 
         # Save best model
         if valid_loss < best_loss:
@@ -295,9 +320,6 @@ if __name__ == "__main__":
                            valid_loss=valid_loss, lr=learning_rate))
 
         # get metrics
-        # train
-        train_roc_auc, train_avg_prec = \
-            compute_metrics(train_true.astype(int), train_outputs)[-2:]
         # valid
         valid_roc_auc, valid_avg_prec = \
             compute_metrics(valid_true.astype(int), valid_outputs)[-2:]
@@ -306,8 +328,6 @@ if __name__ == "__main__":
         history = history.append({"epoch": ep, "train_loss": train_loss,
                                   "valid_loss": valid_loss,
                                   "lr": learning_rate,
-                                  "train_roc_auc": train_roc_auc,
-                                  "train_avg_prec": train_avg_prec,
                                   "valid_roc_auc": valid_roc_auc,
                                   "valid_avg_prec": valid_avg_prec},
                                  ignore_index=True)  # can only append a dict if ignore_index=True

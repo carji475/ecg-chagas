@@ -1,0 +1,19 @@
+font.family: serif
+font.serif: Times
+text.usetex: True
+figure.autolayout: False
+xtick.direction: in
+ytick.direction: in
+figure.frameon: False
+text.latex.preamble: \usepackage{newtxmath}
+figure.figsize:  7.33, 3
+figure.subplot.left:   0.125  # the left side of the subplots of the figure
+figure.subplot.right:  0.99    # the right side of the subplots of the figure
+figure.subplot.bottom: 0.14   # the bottom of the subplots of the figure
+figure.subplot.top:    0.99   # the top of the subplots of the figure
+font.size: 18
+axes.spines.left:   True  # display axis spines
+axes.spines.bottom: True
+axes.spines.top:    False
+axes.spines.right:  False
+legend.handletextpad: 0.2
