@@ -10,7 +10,7 @@ import os
 np.random.seed(0)
 
 ########### edit here after choice #############################################
-model_path = 'model/ensemble/all/'
+model_path = 'models/ensemble/all/'
 adder = '_elsa_ccc'  # test set specification
 ci_valid = [False, False, False]  # Youden, F1, 90%
 ci_test = [False, False, True]  # Youden, F1, 90%
