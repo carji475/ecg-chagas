@@ -16,12 +16,9 @@ Four different cohorts are used in the study. More detailed information TBP.
 4. The `REDS-II` cohort is used for testing.
 
 # Training and evaluation
-
-The code training and evaluation is implemented in Python, contains
-  the code for training and evaluating the age prediction model.
+The code training and evaluation is implemented in Python.
 
 ## Model
-
 The model used in the paper is a residual neural network. The architecture implementation 
 in pytorch is available in `resnet.py`. It follows closely 
 [this architecture](https://www.nature.com/articles/s41467-020-15432-4).
