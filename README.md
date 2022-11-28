@@ -25,7 +25,7 @@ in pytorch is available in `resnet.py`. It follows closely
 
 ![resnet](https://media.springernature.com/full/springer-static/image/art%3A10.1038%2Fs41467-020-15432-4/MediaObjects/41467_2020_15432_Fig3_HTML.png?as=webp)
 
-The model can be trained using the script `train.py`. Alternatively, pre-trained weighs as described in the paper is available at 10.5281/zenodo.7371624.
+The model can be trained using the script `train.py`. Alternatively, pre-trained weighs as described in the paper is available at [https://doi.org/10.5281/zenodo.7371623](https://doi.org/10.5281/zenodo.7371623).
 
 - model input: `shape = (N, 12, 4096)`. The input tensor should contain the 4096 points of the ECG tracings sampled at 400Hz (i.e., a signal of approximately 10 seconds). Both in the training and in the test set, when the signal was not long enough, we filled the signal with zeros, so 4096 points were attained. The last dimension of the tensor contains points of the 12 different leads. The leads are ordered in the following order: {DI, DII, DIII, AVR, AVL, AVF, V1, V2, V3, V4, V5, V6}. All signal are represented as 32 bits floating point numbers at the scale 1e-4V: so if the signal is in V it should be multiplied by 1000 before feeding it to the neural network model.
 - model output: `shape = (N, 1) `. With the entry being interpreted as the predicted probability of Chagas disease.
