@@ -3,9 +3,10 @@
 Scripts and modules for training and testing deep neural networks for ECG automatic classification.
 Companion code to the paper "Screening for Chagas disease from the electrocardiogram using a deep neural network".
 
-Citation:
-TBA
-
+Citation: [link](https://journals.plos.org/plosntds/article?id=10.1371/journal.pntd.0011118)
+```
+Jidling C, Gedon D, Schön TB, Oliveira CDL, Cardoso CS, Ferreira AM, Giatti L, Barreto SM, Sabino EC, Ribeiro ALP, Ribeiro AH. Screening for Chagas disease from the electrocardiogram using a deep neural network. PLoS Negl Trop Dis. 2023 Jul 3;17(7):e0011118. doi: 10.1371/journal.pntd.0011118.
+```
 # Data
 
 Four different cohorts are used in the study. More detailed information TBP.
